@@ -5,6 +5,7 @@ const esfuzz = require("esfuzz");
 const random = require("esfuzz/lib/random");
 const fs = require("fs");
 const minimist = require("minimist");
+const util = require("util");
 const prettier = require("../");
 
 function randomOptions() {
@@ -34,9 +35,12 @@ function highlight(text) {
 }
 
 function formatError(num, error) {
-  return [ "prettier.format " + num + " error:", error && error.stack ].join(
-    "\n"
-  );
+  return [
+    "prettier.format " + num + " error:",
+    error && error.stack
+      ? error.stack
+      : util.inspect(error, { depth: 10, colors: true })
+  ].join("\n");
 }
 
 const argv = minimist(process.argv.slice(2), {
@@ -118,7 +122,7 @@ const status = hasDiff
 const message = status +
   " after " +
   tryCount +
-  (tryCount === 1 ? "try" : " tries");
+  (tryCount === 1 ? " try" : " tries");
 
 const separator = "─".repeat(process.stdout.columns);
 
