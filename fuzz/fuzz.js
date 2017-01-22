@@ -4,6 +4,7 @@ const jsdiff = require("diff");
 const esfuzz = require("esfuzz");
 const random = require("esfuzz/lib/random");
 const fs = require("fs");
+const kebabcase = require("lodash.kebabcase");
 const minimist = require("minimist");
 const shiftCodegen = require("shift-codegen");
 const shiftFuzzer = require("shift-fuzzer");
@@ -145,7 +146,15 @@ const status = hasDiff
 const message = status +
   " after " +
   tryCount +
-  (tryCount === 1 ? " try" : " tries");
+  " " +
+  (tryCount === 1 ? "try" : "tries") +
+  ". To reproduce, run:\n";
+
+const reproductionCommand = "./bin/prettier.js fuzz/random.js " +
+  Object
+    .keys(options)
+    .map(key => "--" + kebabcase(key) + "=" + options[key])
+    .join(" ");
 
 const separator = "─".repeat(process.stdout.columns);
 
@@ -158,7 +167,8 @@ const output = [
   separator,
   optionsString,
   separator,
-  message
+  message,
+  reproductionCommand
 ]
   .filter(part => part !== null)
   .join("\n");
