@@ -4,6 +4,7 @@ const jsdiff = require("diff");
 const esfuzz = require("esfuzz");
 const random = require("esfuzz/lib/random");
 const fs = require("fs");
+const minimist = require("minimist");
 const prettier = require("../");
 
 function randomOptions() {
@@ -38,33 +39,57 @@ function formatError(num, error) {
   );
 }
 
+const argv = minimist(process.argv.slice(2), {
+  boolean: [ "show-initial-parse-errors", "show-successes" ],
+  string: [ "max-depth" ],
+  default: {
+    "max-depth": "7",
+    "show-initial-parse-errors": false,
+    "show-successes": false
+  },
+  unknown: param => {
+    if (param.startsWith("-")) {
+      console.warn("Ignored unknown option: " + param + "\n");
+    }
+  }
+});
+
 const boringRegex = /^[\s;]*$|with/;
 
 let tryCount = 0;
+let randomAST;
+let randomJS;
+let options;
+let prettierJS1;
+let prettierJS1Error;
+let prettierJS2;
+let prettierJS2Error;
+let hasError = false;
+let hasDiff = false;
+
 while (true) {
   tryCount++;
-  var randomAST = esfuzz.generate({ maxDepth: 7 });
-  var randomJS = esfuzz.render(randomAST);
+  randomAST = esfuzz.generate({ maxDepth: parseInt(argv["max-depth"], 10) });
+  randomJS = esfuzz.render(randomAST);
+
   if (boringRegex.test(randomJS)) {
     continue;
   }
 
-  var options = randomOptions();
+  options = randomOptions();
 
-  var prettierJS1 = null;
-  var prettierJS1Error = null;
   try {
     prettierJS1 = prettier.format(randomJS, options);
   } catch (error) {
-    if (error.toString().indexOf('SyntaxError') !== -1) {
+    if (
+      !argv["show-initial-parse-errors"] &&
+        error.toString().includes("SyntaxError")
+    ) {
       continue;
     }
     prettierJS1Error = error;
   }
 
-
-  var prettierJS2 = null;
-  var prettierJS2Error = null;
   if (!prettierJS1Error) {
     try {
       prettierJS2 = prettier.format(prettierJS1, options);
@@ -73,9 +98,9 @@ while (true) {
     }
   }
 
-  var hasError = Boolean(prettierJS1Error || prettierJS2Error);
-  var hasDiff = !hasError && prettierJS1 !== prettierJS2;
-  if (hasError || hasDiff) {
+  hasError = Boolean(prettierJS1Error || prettierJS2Error);
+  hasDiff = !hasError && prettierJS1 !== prettierJS2;
+  if (hasError || hasDiff || argv["show-successes"]) {
     break;
   }
 }
@@ -84,9 +109,14 @@ const diffString = hasDiff
   ? jsdiff.diffChars(prettierJS1, prettierJS2).map(colorizeDiff).join("")
   : "";
 
-const message = hasDiff
+const status = hasDiff
   ? chalk.red("Diff")
-  : hasError ? chalk.red("Error") : chalk.green("Success!");
+  : hasError ? chalk.red("Error") : chalk.green("Success");
+
+const message = status +
+  " after " +
+  tryCount +
+  (tryCount === 1 ? "try" : " tries");
 
 const separator = "─".repeat(process.stdout.columns);
 
@@ -99,7 +129,7 @@ const output = [
   separator,
   JSON.stringify(options, null, 2),
   separator,
-  message + ' after ' + tryCount + ' tries',
+  message
 ]
   .filter(part => part !== null)
   .join("\n");
