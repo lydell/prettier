@@ -5,6 +5,8 @@ const esfuzz = require("esfuzz");
 const random = require("esfuzz/lib/random");
 const fs = require("fs");
 const minimist = require("minimist");
+const shiftCodegen = require("shift-codegen");
+const shiftFuzzer = require("shift-fuzzer");
 const util = require("util");
 const prettier = require("../");
 
@@ -34,6 +36,22 @@ function highlight(text) {
   });
 }
 
+function fuzzWithEsfuzz(maxDepth) {
+  const randomAST = esfuzz.generate({ maxDepth });
+  return esfuzz.render(randomAST);
+}
+
+function fuzzWithShiftFuzzer(maxDepth) {
+  const randomAST = shiftFuzzer.fuzzModule(new shiftFuzzer.FuzzerState({
+    maxDepth
+  }));
+  const generator = random.randomElement([
+    shiftCodegen.MinimalCodeGen,
+    shiftCodegen.FormattedCodeGen
+  ]);
+  return shiftCodegen.default(randomAST, new generator());
+}
+
 function formatError(num, error) {
   return [
     "prettier.format " + num + " error:",
@@ -45,8 +63,10 @@ function formatError(num, error) {
 
 const argv = minimist(process.argv.slice(2), {
   boolean: [ "show-initial-parse-errors", "show-successes" ],
-  string: [ "max-depth" ],
+  string: [ "fuzzer", "max-depth" ],
   default: {
+    // "esfuzz" or "shift"
+    fuzzer: "shift",
     "max-depth": "7",
     "show-initial-parse-errors": false,
     "show-successes": false
@@ -60,8 +80,12 @@ const argv = minimist(process.argv.slice(2), {
 
 const boringRegex = /^[\s;]*$|with/;
 
+const maxDepth = parseInt(argv["max-depth"], 10);
+const fuzzer = argv["fuzzer"] === "shift"
+  ? fuzzWithShiftFuzzer
+  : fuzzWithEsfuzz;
+
 let tryCount = 0;
-let randomAST;
 let randomJS;
 let options;
 let prettierJS1;
@@ -73,8 +97,7 @@ let hasDiff = false;
 
 while (true) {
   tryCount++;
-  randomAST = esfuzz.generate({ maxDepth: parseInt(argv["max-depth"], 10) });
-  randomJS = esfuzz.render(randomAST);
+  randomJS = fuzzer(maxDepth);
 
   if (boringRegex.test(randomJS)) {
     continue;
