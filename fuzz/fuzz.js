@@ -109,6 +109,8 @@ const diffString = hasDiff
   ? jsdiff.diffChars(prettierJS1, prettierJS2).map(colorizeDiff).join("")
   : "";
 
+const optionsString = JSON.stringify(options, null, 2);
+
 const status = hasDiff
   ? chalk.red("Diff")
   : hasError ? chalk.red("Error") : chalk.green("Success");
@@ -127,7 +129,7 @@ const output = [
   prettierJS1Error ? formatError(1, prettierJS1Error) : null,
   prettierJS2Error ? formatError(2, prettierJS2Error) : null,
   separator,
-  JSON.stringify(options, null, 2),
+  optionsString,
   separator,
   message
 ]
@@ -139,3 +141,4 @@ console.log(output);
 fs.writeFileSync(__dirname + "/random.js", randomJS);
 fs.writeFileSync(__dirname + "/prettier1.js", prettierJS1);
 fs.writeFileSync(__dirname + "/prettier2.js", prettierJS2);
+fs.writeFileSync(__dirname + "/options.json", optionsString);
