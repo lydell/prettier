@@ -33,6 +33,7 @@ export default (() => {})();
 (() => {})()\`\`;
 (() => {})\`\`;
 new (() => {});
+if ((() => {}) ? 1 : 0) {}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (a => {
 }).length;
@@ -46,6 +47,9 @@ export default (() => {
 })\`\`;
 new (() => {
 })();
+if ((() => {
+  }) ? 1 : 0) {
+}
 "
 `;
 
@@ -60,6 +64,8 @@ exports[`test arrows.js 1`] = `
     return images.find(image => image.width >= maxPixelWidth) ||
         images[images.length - 1];
 }
+
+a = () => ({} = this);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 function selectBestEffortImageForWidth(
   maxWidth: number,
@@ -71,6 +77,8 @@ function selectBestEffortImageForWidth(
   return images.find(image => image.width >= maxPixelWidth) ||
     images[images.length - 1];
 }
+
+a = () => ({} = this);
 "
 `;
 

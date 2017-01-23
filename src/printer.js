@@ -613,6 +613,9 @@ function genericPrintNoParens(path, options, print) {
       if (n.elements.length === 0) {
         parts.push("[]");
       } else {
+        const lastElem = util.getLast(n.elements);
+        const canHaveTrailingComma = !(lastElem && lastElem.type === "RestElement");
+
         // JavaScript allows you to have empty elements in an array which
         // changes its length based on the number of commas. The algorithm
         // is that if the last argument is null, we need to force insert
@@ -623,7 +626,7 @@ function genericPrintNoParens(path, options, print) {
         //
         // Note that util.getLast returns null if the array is empty, but
         // we already check for an empty array just above so we are safe
-        const needsForcedTrailingComma = util.getLast(n.elements) === null;
+        const needsForcedTrailingComma = canHaveTrailingComma && lastElem === null;
 
         parts.push(
           multilineGroup(
@@ -637,7 +640,11 @@ function genericPrintNoParens(path, options, print) {
                 ])
               ),
               needsForcedTrailingComma ? "," : "",
-              ifBreak(!needsForcedTrailingComma && options.trailingComma ? "," : ""),
+              ifBreak(
+                canHaveTrailingComma &&
+                !needsForcedTrailingComma &&
+                options.trailingComma ? "," : ""
+              ),
               options.bracketSpacing ? line : softline,
               "]"
             ])
@@ -1580,17 +1587,20 @@ function printStatementSequence(path, options, print) {
 }
 
 function printPropertyKey(path, options, print) {
-  var node = path.getNode().key;
+  const node = path.getNode();
+  const key = node.key;
+
   if (
-    (node.type === "StringLiteral" ||
-      node.type === "Literal" && typeof node.value === "string") &&
-      isIdentifierName(node.value) &&
+    (key.type === "StringLiteral" ||
+      key.type === "Literal" && typeof key.value === "string") &&
+      isIdentifierName(key.value) &&
+      !node.computed &&
       // There's a bug in the flow parser where it throws if there are
       // unquoted unicode literals as keys. Let's quote them for now.
-      (options.parser !== "flow" || node.value.match(/[a-zA-Z0-9$_]/))
+      (options.parser !== "flow" || key.value.match(/[a-zA-Z0-9$_]/))
   ) {
     // 'a' -> a
-    return node.value;
+    return key.value;
   }
   return path.call(print, "key");
 }

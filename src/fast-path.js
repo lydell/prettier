@@ -192,12 +192,26 @@ FPp.needsParens = function(assumeExpressionContext) {
     return false;
   }
 
-  // Add parens around a `class` that extends an expression (it should
-  // parse correctly, even if it's invalid)
+  // Add parens around the extends clause of a class. It is needed for almost
+  // all expressions.
   if (
-    parent.type === "ClassDeclaration" &&
-      parent.superClass === node &&
-      node.type === "AwaitExpression"
+    (parent.type === "ClassDeclaration" || parent.type === "ClassExpression") &&
+      parent.superClass === node && (
+        node.type === "ArrowFunctionExpression" ||
+        node.type === "AssignmentExpression" ||
+        node.type === "AwaitExpression" ||
+        node.type === "BinaryExpression" ||
+        node.type === "ConditionalExpression" ||
+        node.type === "LogicalExpression" ||
+        node.type === "NewExpression" ||
+        node.type === "ObjectExpression" ||
+        node.type === "ParenthesizedExpression" ||
+        node.type === "SequenceExpression" ||
+        node.type === "TaggedTemplateExpression" ||
+        node.type === "UnaryExpression" ||
+        node.type === "UpdateExpression" ||
+        node.type === "YieldExpression"
+      )
   ) {
     return true;
   }
@@ -227,9 +241,17 @@ FPp.needsParens = function(assumeExpressionContext) {
         case "MemberExpression":
           return name === "object" && parent.object === node;
 
+        case "TaggedTemplateExpression":
         case "CallExpression":
         case "NewExpression":
           return true;
+
+        case "UnaryExpression":
+          if (node.prefix &&
+            ((node.operator === '++' && parent.operator === '+') ||
+              (node.operator === '--' && parent.operator === '-'))) {
+            return true;
+          }
 
         return false;
       }
@@ -245,12 +267,17 @@ FPp.needsParens = function(assumeExpressionContext) {
       }
 
     case "BinaryExpression":
+      if (node.operator === "in" && parent.type === "ForStatement" && parent.init === node) {
+        return true;
+      }
+
     case "LogicalExpression":
       switch (parent.type) {
         case "CallExpression":
         case "NewExpression":
           return name === "callee" && parent.callee === node;
 
+        case "TaggedTemplateExpression":
         case "UnaryExpression":
         case "SpreadElement":
         case "SpreadProperty":
@@ -300,9 +327,15 @@ FPp.needsParens = function(assumeExpressionContext) {
           return true;
       }
 
-    case "AwaitExpression":
     case "YieldExpression":
+      if (parent.type === "ConditionalExpression" &&
+          parent.test === node &&
+          !node.argument) {
+        return true;
+      }
+    case "AwaitExpression":
       switch (parent.type) {
+        case "TaggedTemplateExpression":
         case "BinaryExpression":
         case "LogicalExpression":
         case "UnaryExpression":
@@ -343,14 +376,23 @@ FPp.needsParens = function(assumeExpressionContext) {
         parent.object === node;
 
     case "AssignmentExpression":
+      if (parent.type === "ArrowFunctionExpression" &&
+          parent.body === node &&
+          node.left.type === "ObjectPattern") {
+        return true;
+      }
+
     case "ConditionalExpression":
       switch (parent.type) {
+        case "TaggedTemplateExpression":
         case "UnaryExpression":
         case "SpreadElement":
         case "SpreadProperty":
         case "BinaryExpression":
         case "LogicalExpression":
+        case "LogicalExpression":
         case "NewExpression":
+        case "ExportDefaultDeclaration":
           return true;
 
         case "CallExpression":
@@ -373,6 +415,11 @@ FPp.needsParens = function(assumeExpressionContext) {
       }
 
       switch (parent.type) {
+        case "ConditionalExpression":
+          if (parent.test === node) {
+            return true;
+          }
+
         case "ExportDefaultDeclaration":
           return node.type !== "ArrowFunctionExpression";
 
@@ -385,15 +432,30 @@ FPp.needsParens = function(assumeExpressionContext) {
         case "NewExpression":
           return name === "callee";
 
+        case "LogicalExpression":
+          return node.type === "ArrowFunctionExpression";
+
         default:
           return isBinary(parent);
       }
 
     case "ClassExpression":
       switch (parent.type) {
+        case "TaggedTemplateExpression":
+        case "BinaryExpression":
         case "ExportDefaultDeclaration":
         case "ExpressionStatement":
           return true;
+        case "CallExpression":
+          if (parent.callee === node) {
+            return true;
+          }
+        case "MemberExpression":
+          return name === "object" && parent.object === node;
+        case "ConditionalExpression":
+          if (parent.test === node) {
+            return true;
+          }
       }
 
       return false;
@@ -401,6 +463,12 @@ FPp.needsParens = function(assumeExpressionContext) {
     case "ObjectExpression":
       if (parent.type === "ArrowFunctionExpression" && name === "body") {
         return true;
+      }
+      if (parent.type === "TaggedTemplateExpression") {
+        return true;
+      }
+      if (parent.type === "MemberExpression") {
+        return name === "object" && parent.object === node;
       }
 
     default:
