@@ -3,6 +3,7 @@
 "use strict";
 const fs = require("fs");
 const getStdin = require("get-stdin");
+const glob = require("glob");
 const minimist = require("minimist");
 const prettier = require("../index");
 
@@ -13,13 +14,15 @@ const argv = minimist(process.argv.slice(2), {
     "single-quote",
     "trailing-comma",
     "bracket-spacing",
+    // See https://github.com/chalk/supports-color/#info
+    "color",
     "version",
     "debug-print-doc",
     // Deprecated in 0.0.10
     "flow-parser"
   ],
   string: [ "print-width", "tab-width", "parser" ],
-  default: { "bracket-spacing": true, parser: "babylon" },
+  default: { color: true, "bracket-spacing": true, parser: "babylon" },
   unknown: param => {
     if (param.startsWith("-")) {
       console.warn("Ignored unknown option: " + param + "\n");
@@ -32,11 +35,11 @@ if (argv["version"]) {
   process.exit(0);
 }
 
-const filenames = argv["_"];
+const filepatterns = argv["_"];
 const write = argv["write"];
 const stdin = argv["stdin"];
 
-if (!filenames.length && !stdin) {
+if (!filepatterns.length && !stdin) {
   console.log(
     "Usage: prettier [opts] [filename ...]\n\n" +
       "Available options:\n" +
@@ -46,9 +49,14 @@ if (!filenames.length && !stdin) {
       "  --tab-width <int>        Specify the number of spaces per indentation-level. Defaults to 2.\n" +
       "  --single-quote           Use single quotes instead of double.\n" +
       "  --trailing-comma         Print trailing commas wherever possible.\n" +
-      "  --bracket-spacing        Put spaces between brackets. Defaults to true, set false to turn off.\n" +
+      "  --bracket-spacing        Put spaces between brackets. Defaults to true.\n" +
       "  --parser <flow|babylon>  Specify which parse to use. Defaults to babylon.\n" +
-      "  --version                Print prettier version."
+      "  --color                  Colorize error messages. Defaults to true.\n" +
+      "  --version                Print prettier version.\n" +
+      "\n" +
+      "Boolean options can be turned off like this:\n" +
+      "  --no-bracket-spacing\n" +
+      "  --bracket-spacing=false"
   );
   process.exit(1);
 }
@@ -90,12 +98,12 @@ if (stdin) {
       console.log(format(input));
     } catch (e) {
       process.exitCode = 2;
-      console.error(e);
+      console.error("stdin: " + e);
       return;
     }
   });
 } else {
-  filenames.forEach(filename => {
+  eachFilename(filepatterns, filename => {
     fs.readFile(filename, "utf8", (err, input) => {
       if (write) {
         console.log(filename);
@@ -128,6 +136,23 @@ if (stdin) {
       } else {
         console.log(output);
       }
+    });
+  });
+}
+
+function eachFilename(patterns, callback) {
+  patterns.forEach(pattern => {
+    glob(pattern, (err, filenames) => {
+      if (err) {
+        console.error("Unable to expand glob pattern: " + pattern + "\n" + err);
+        // Don't exit the process if one pattern failed
+        process.exitCode = 2;
+        return;
+      }
+
+      filenames.forEach(filename => {
+        callback(filename);
+      });
     });
   });
 }
