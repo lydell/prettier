@@ -63,7 +63,7 @@ function formatError(num, error) {
 }
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: [ "show-initial-parse-errors", "show-successes" ],
+  boolean: [ "show-initial-parse-errors", "show-successes", "reproduce" ],
   string: [ "fuzzer", "max-depth" ],
   default: {
     // "esfuzz" or "shift"
@@ -98,19 +98,23 @@ let hasDiff = false;
 
 while (true) {
   tryCount++;
-  randomJS = fuzzer(maxDepth);
+  randomJS = argv["reproduce"]
+    ? fs.readFileSync(__dirname + "/random.js", "utf-8")
+    : fuzzer(maxDepth);
 
-  if (boringRegex.test(randomJS)) {
+  if (!argv["reproduce"] && boringRegex.test(randomJS)) {
     continue;
   }
 
   options = randomOptions();
+  options = require("./options.json");
 
   try {
     prettierJS1 = prettier.format(randomJS, options);
   } catch (error) {
     if (
-      !argv["show-initial-parse-errors"] &&
+      !argv["reproduce"] &&
+        !argv["show-initial-parse-errors"] &&
         error.toString().includes("SyntaxError")
     ) {
       continue;
@@ -128,7 +132,7 @@ while (true) {
 
   hasError = Boolean(prettierJS1Error || prettierJS2Error);
   hasDiff = !hasError && prettierJS1 !== prettierJS2;
-  if (hasError || hasDiff || argv["show-successes"]) {
+  if (hasError || hasDiff || argv["show-successes"] || argv["reproduce"]) {
     break;
   }
 }
@@ -148,7 +152,10 @@ const message = status +
   tryCount +
   " " +
   (tryCount === 1 ? "try" : "tries") +
-  ". To reproduce, run:\n";
+  ". " +
+  (argv["reproduce"]
+    ? "Reproduced with `--reproduce`. You can also play with:\n"
+    : "Add `--reproduce` to reproduce, or play with:\n");
 
 const reproductionCommand = "./bin/prettier.js fuzz/random.js " +
   Object
@@ -175,7 +182,11 @@ const output = [
 
 console.log(output);
 
-fs.writeFileSync(__dirname + "/random.js", randomJS);
-fs.writeFileSync(__dirname + "/prettier1.js", prettierJS1);
-fs.writeFileSync(__dirname + "/prettier2.js", prettierJS2);
-fs.writeFileSync(__dirname + "/options.json", optionsString);
+if (!argv["reproduce"]) {
+  fs.writeFileSync(__dirname + "/random.js", randomJS);
+  fs.writeFileSync(__dirname + "/random.backup.js", randomJS);
+  fs.writeFileSync(__dirname + "/options.json", optionsString);
+}
+
+fs.writeFileSync(__dirname + "/prettier1.js", prettierJS1 || "<error>");
+fs.writeFileSync(__dirname + "/prettier2.js", prettierJS2 || "<error>");
