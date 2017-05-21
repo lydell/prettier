@@ -3981,6 +3981,8 @@ function printNumber(rawNumber) {
       .replace(/^([\d.]+e)(?:\+|(-))?0*(\d)/, "$1$2$3")
       // Remove unnecessary scientific notation (1e0).
       .replace(/^([\d.]+)e[+-]?0+$/, "$1")
+      // Remove more unnecessary scientific notation (0e5).
+      .replace(/^[0.]+e.+$/, "0")
       // Make sure numbers always start with a digit.
       .replace(/^\./, "0.")
       // Remove trailing dot.

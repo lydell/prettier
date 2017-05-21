@@ -65,6 +65,11 @@ function test5(): string {
 0.5e+00
 0.5e-0
 0.5e-00
+
+0e5
+.0e-24
+0.0e+050
+0.000E10
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // parentheses around numeric literal should be preserved
 function test5(): string {
@@ -130,5 +135,10 @@ function test5(): string {
 0.5;
 0.5;
 0.5;
+
+0;
+0;
+0;
+0;
 
 `;
